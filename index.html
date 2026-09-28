@@ -3,94 +3,546 @@
 
 <head>
 
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+>
 
-  <title>Cabina</title>
+<title>Cabina</title>
 
-  <style>
+<style>
 
-    * {
-      box-sizing: border-box;
-    }
+* {
+  box-sizing: border-box;
+}
 
-    html,
-    body {
+html,
+body {
 
-      margin: 0;
-      padding: 0;
+  margin: 0;
+  padding: 0;
 
-      width: 100%;
-      height: 100%;
+  width: 100%;
+  height: 100%;
 
-      background: #000000;
+  background: #000000;
 
-      overflow: hidden;
+  overflow: hidden;
 
-      font-family: Arial, sans-serif;
+}
 
-    }
+#espera {
 
-    #pantalla {
+  width: 100%;
+  height: 100%;
 
-      width: 100%;
-      height: 100%;
+  background-image:
+    url("IMAGENES/espera.png");
 
-      display: flex;
+  background-size: cover;
 
-      flex-direction: column;
+  background-position: center;
 
-      justify-content: center;
+  background-repeat: no-repeat;
 
-      align-items: center;
+}
 
-      text-align: center;
+#video {
 
-    }
+  display: none;
 
-    #logo {
+  width: 100%;
+  height: 100%;
 
-      width: 300px;
+  object-fit: contain;
 
-      max-width: 70vw;
+  background: #000000;
 
-      height: auto;
+}
 
-      margin-bottom: 40px;
-
-    }
-
-    #mensaje {
-
-      color: #FFFFFF;
-
-      font-size: 24px;
-
-    }
-
-  </style>
+</style>
 
 </head>
 
+
 <body>
 
-  <div id="pantalla">
 
-    <img
-      id="logo"
-      src="logo.png"
-      alt="Cabina"
-    >
+<div id="espera"></div>
 
-    <div id="mensaje">
-      Esperando nueva experiencia...
-    </div>
+<video
+  id="video"
+  playsinline
+></video>
 
-  </div>
+
+<script>
+
+
+const URL_APPS_SCRIPT =
+  "https://script.google.com/macros/s/AKfycbwPH_9hWI_TaPSRoFdcTT73DStbsNYHl_NDrkxTJk3Xe5EVBVbu_KEVvyD_v3qNoRCT/exec";
+
+
+const espera =
+  document.getElementById("espera");
+
+
+const video =
+  document.getElementById("video");
+
+
+let experienciaEnProceso =
+  false;
+
+
+let ultimoIdProcesado =
+  "";
+
+
+
+/*
+ * ==========================================
+ * CONSULTAR ESTADO
+ * ==========================================
+ */
+
+function consultarEstado() {
+
+
+  const nombreCallback =
+    "respuestaEstado_" +
+    Date.now();
+
+
+  window[nombreCallback] =
+    function(resultado) {
+
+
+      console.log(
+        "ESTADO CABINA:",
+        resultado
+      );
+
+
+      if (
+
+        resultado &&
+
+        String(resultado.estado)
+          .toUpperCase() ===
+          "OCUPADA" &&
+
+        !experienciaEnProceso &&
+
+        String(resultado.idRegistro) !==
+          String(ultimoIdProcesado)
+
+      ) {
+
+
+        ultimoIdProcesado =
+          resultado.idRegistro;
+
+
+        iniciarExperiencia(
+          resultado.experiencia
+        );
+
+      }
+
+
+      delete window[
+        nombreCallback
+      ];
+
+
+      script.remove();
+
+    };
+
+
+  const script =
+    document.createElement(
+      "script"
+    );
+
+
+  script.src =
+    URL_APPS_SCRIPT +
+    "?accion=estado" +
+    "&prefix=" +
+    nombreCallback +
+    "&t=" +
+    Date.now();
+
+
+  script.onerror =
+    function() {
+
+
+      console.error(
+        "No se pudo consultar Apps Script."
+      );
+
+
+      delete window[
+        nombreCallback
+      ];
+
+
+      script.remove();
+
+    };
+
+
+  document.body.appendChild(
+    script
+  );
+
+}
+
+
+
+/*
+ * ==========================================
+ * INICIAR EXPERIENCIA
+ * ==========================================
+ */
+
+function iniciarExperiencia(
+  experiencia
+) {
+
+
+  if (!experiencia) {
+
+    console.error(
+      "No se recibió EXPERIENCIA_ACTUAL."
+    );
+
+    return;
+
+  }
+
+
+  experienciaEnProceso =
+    true;
+
+
+  console.log(
+    "EXPERIENCIA RECIBIDA:",
+    experiencia
+  );
+
+
+  /*
+   * ==================================
+   * CUENTA REGRESIVA
+   *
+   * SE REPRODUCE SIN AUDIO
+   * PARA PERMITIR AUTOPLAY
+   * ==================================
+   */
+
+  reproducirVideo(
+    "VIDEOS/cuenta.mp4",
+    true,
+    function() {
+
+
+      console.log(
+        "CUENTA TERMINADA"
+      );
+
+
+      /*
+       * ==================================
+       * EXPERIENCIA
+       *
+       * VUELVE A AUDIO NORMAL
+       * ==================================
+       */
+
+      const archivoExperiencia =
+        "VIDEOS/" +
+        experiencia +
+        ".mp4";
+
+
+      console.log(
+        "INICIANDO EXPERIENCIA:",
+        archivoExperiencia
+      );
+
+
+      reproducirVideo(
+        archivoExperiencia,
+        false,
+        function() {
+
+
+          console.log(
+            "EXPERIENCIA TERMINADA"
+          );
+
+
+          volverAEspera();
+
+
+          liberarCabina();
+
+        }
+      );
+
+    }
+  );
+
+}
+
+
+
+/*
+ * ==========================================
+ * REPRODUCIR VIDEO
+ * ==========================================
+ *
+ * muteado = true
+ *   → reproduce sin audio
+ *
+ * muteado = false
+ *   → reproduce con audio
+ *
+ */
+
+function reproducirVideo(
+  archivo,
+  muteado,
+  alTerminar
+) {
+
+
+  espera.style.display =
+    "none";
+
+
+  video.style.display =
+    "block";
+
+
+  /*
+   * CONFIGURAR AUDIO
+   */
+
+  video.muted =
+    muteado;
+
+
+  /*
+   * CARGAR VIDEO
+   */
+
+  video.src =
+    archivo;
+
+
+  video.currentTime =
+    0;
+
+
+  /*
+   * DETECTAR FINAL
+   */
+
+  video.onended =
+    function() {
+
+
+      video.onended =
+        null;
+
+
+      alTerminar();
+
+    };
+
+
+  /*
+   * REPRODUCIR
+   */
+
+  video.play()
+    .then(
+      function() {
+
+
+        console.log(
+          "REPRODUCIENDO:",
+          archivo,
+          "MUTED:",
+          video.muted
+        );
+
+
+      }
+    )
+    .catch(
+      function(error) {
+
+
+        console.error(
+          "ERROR AL REPRODUCIR:",
+          archivo,
+          error
+        );
+
+
+      }
+    );
+
+}
+
+
+
+/*
+ * ==========================================
+ * VOLVER A ESPERA
+ * ==========================================
+ */
+
+function volverAEspera() {
+
+
+  video.pause();
+
+
+  video.removeAttribute(
+    "src"
+  );
+
+
+  video.load();
+
+
+  video.style.display =
+    "none";
+
+
+  espera.style.display =
+    "block";
+
+
+  experienciaEnProceso =
+    false;
+
+
+  console.log(
+    "VOLVIENDO A ESPERA"
+  );
+
+}
+
+
+
+/*
+ * ==========================================
+ * LIBERAR CABINA
+ * ==========================================
+ */
+
+function liberarCabina() {
+
+
+  console.log(
+    "SOLICITANDO LIBERACIÓN DE CABINA..."
+  );
+
+
+  const nombreCallback =
+    "respuestaLiberar_" +
+    Date.now();
+
+
+  window[nombreCallback] =
+    function(resultado) {
+
+
+      console.log(
+        "RESPUESTA LIBERAR:",
+        resultado
+      );
+
+
+      delete window[
+        nombreCallback
+      ];
+
+
+      script.remove();
+
+    };
+
+
+  const script =
+    document.createElement(
+      "script"
+    );
+
+
+  script.src =
+    URL_APPS_SCRIPT +
+    "?accion=liberar" +
+    "&prefix=" +
+    nombreCallback +
+    "&t=" +
+    Date.now();
+
+
+  script.onerror =
+    function() {
+
+
+      console.error(
+        "No se pudo solicitar la liberación."
+      );
+
+
+      delete window[
+        nombreCallback
+      ];
+
+
+      script.remove();
+
+    };
+
+
+  document.body.appendChild(
+    script
+  );
+
+}
+
+
+
+/*
+ * ==========================================
+ * INICIO
+ * ==========================================
+ */
+
+consultarEstado();
+
+
+setInterval(
+  consultarEstado,
+  2000
+);
+
+
+</script>
+
 
 </body>
 
